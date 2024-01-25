@@ -1,55 +1,50 @@
 const express = require('express');
+const app = express();
 const axios = require('axios');
 const cheerio = require('cheerio');
-const fs = require('fs');
+const fs = require('node:fs');
 
-const app = express();
-const port = 3002;
+// Middleware para manejar datos JSON
+app.use(express.json());
+
+// Middleware para manejar datos de formularios URL-encoded
+app.use(express.urlencoded({ extended: true }));
+
+const url = 'https://elpais.com/ultimas-noticias/'
 
 app.get('/', async (req, res) => {
   try {
-    const url = 'https://elpais.com/ultimas-noticias/';  // Reemplaza con la URL de la página que quieres hacer scraping
+    const response = await axios.get(url)
+    const html = response.data
+    const $ = cheerio.load(html)
+    
+    let noticias = [];
 
-    // Realizar la solicitud HTTP
-    const response = await axios.get(url);
-    const html = response.data;
-    const $ = cheerio.load(html);
+    $('article').each((index, element) => {
+      const titulo = $(element).find('h2').text();
+      const descripcion = $(element).find('p').text();
+      const enlace = $(element).find('a').attr('href');
+      const imagen = $(element).find('img').attr('src');
 
-    // Obtener los elementos dentro de .b-st_a
-    const elementos = $('.b-st_a article.c.c-d.c--m');
-
-    // Lista para almacenar los objetos
-    const noticias = [];
-
-    // Iterar sobre los elementos y realizar scraping en cada artículo
-    elementos.each((_, elemento) => {
-      const titulo = $(elemento).find('header.c_h').text().trim();
-      const imagen = $(elemento).find('img').attr('src');
-      const descripcion = $(elemento).find('p.c_d').text().trim();
-      const enlace = $(elemento).find('a').attr('href');
-
-      // Crear objeto con los datos
       const noticia = {
         titulo: titulo,
-        imagen: imagen,
         descripcion: descripcion,
         enlace: enlace,
+        imagen: imagen,
       };
-
-      // Agregar noticia a la lista
       noticias.push(noticia);
     });
 
-    // Escribir la lista de noticias en un archivo JSON
     fs.writeFileSync('noticias.json', JSON.stringify(noticias, null, 2));
+    res.send('Scraping completado');
 
-    res.send('Scraping completado. Datos guardados en noticias.json');
-  } catch (error) {
-    console.error('Error al realizar la solicitud:', error.message);
-    res.status(500).send('Error interno del servidor');
+  } catch (error){
+    res.status(404).json({message: error})
   }
+})
+
+app.listen(3000, () => {
+  console.log('Scraping server listening http://localhost:3000')
 });
 
-app.listen(port, () => {
-  console.log(`Servidor escuchando en http://localhost:${port}`);
-});
+

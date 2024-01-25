@@ -1,11 +1,12 @@
 const express = require('express');
-const fs = require('fs');
-const bodyParser = require('body-parser');
-
 const app = express();
-const port = 3001;
+const fs = require('node:fs');
 
-app.use(bodyParser.json());
+// Middleware para manejar datos JSON
+app.use(express.json());
+
+// Middleware para manejar datos de formularios URL-encoded
+app.use(express.urlencoded({ extended: true }));
 
 let noticias = [];
 
@@ -19,71 +20,60 @@ function leerDatos() {
   }
 }
 
-// Guardar datos en el archivo JSON
 function guardarDatos() {
   fs.writeFileSync('noticias.json', JSON.stringify(noticias, null, 2));
 }
 
-// Obtener todas las noticias
-app.get('/noticias', (req, res) => {
-  leerDatos();
-  res.json(noticias);
-});
-
-// Obtener una noticia por su índice
-app.get('/noticias/:indice', (req, res) => {
-  const indice = parseInt(req.params.indice);
-  leerDatos();
-
-  if (indice >= 0 && indice < noticias.length) {
-    res.json(noticias[indice]);
-  } else {
-    res.status(404).json({ mensaje: 'Noticia no encontrada' });
+app.get('/', (req, res) => {
+  try {
+    let response = leerDatos()
+    res.json(response)
+  } catch (error) {
+    res.status(404).json({message: 'Not found'})
   }
 });
 
-// Crear una nueva noticia
-app.post('/noticias', (req, res) => {
-  leerDatos();
-
-  const nuevaNoticia = req.body;
-  noticias.push(nuevaNoticia);
-
-  guardarDatos();
-  res.json({ mensaje: 'Noticia creada con éxito', noticia: nuevaNoticia });
+app.post('/noticia', (req, res) => {
+  const { titulo, descripcion, enlace, imagen } = req.body;
+  let nuevaNoticia = {
+    titulo: titulo,
+    descripcion: descripcion,
+    enlace: enlace, 
+    imagen: imagen
+  }
+  noticias.push(nuevaNoticia)
+  guardarDatos()
+  res.json(noticias)
 });
 
-// Actualizar una noticia existente
-app.put('/noticias/:indice', (req, res) => {
-  const indice = parseInt(req.params.indice);
+app.put('/noticia/:id', (req, res) => {
+  const id = req.params.id
   leerDatos();
 
-  if (indice >= 0 && indice < noticias.length) {
-    const noticiaActualizada = req.body;
-    noticias[indice] = noticiaActualizada;
+  if(id < noticias.length && id >= 0) {
+    let cambioNoticia = req.body
+    noticias[id] = cambioNoticia
 
-    guardarDatos();
-    res.json({ mensaje: 'Noticia actualizada con éxito', noticia: noticiaActualizada });
+    guardarDatos()
+    res.status(200).json({message: 'Noticia actualizada'})
   } else {
-    res.status(404).json({ mensaje: 'Noticia no encontrada' });
+    res.status(404).json({message: 'La noticia no existe'})
   }
 });
 
-// Eliminar una noticia
-app.delete('/noticias/:indice', (req, res) => {
-  const indice = parseInt(req.params.indice);
+app.delete('/noticia/:id', (req, res) => {
+  const id = req.params.id
   leerDatos();
 
-  if (indice >= 0 && indice < noticias.length) {
-    const noticiaEliminada = noticias.splice(indice, 1);
-
-    guardarDatos();
-    res.json({ mensaje: 'Noticia eliminada con éxito', noticia: noticiaEliminada });
+  if(id < noticias.length && id >= 0) {
+    noticias.splice(id, 1)
+    guardarDatos()
+    res.status(200).json({message: 'Noticia eliminada'})
   } else {
-    res.status(404).json({ mensaje: 'Noticia no encontrada' });
+    res.status(404).json({message: 'La noticia no existe'})
   }
-});
+})
 
-app.listen(port, () => {
-  console.log(`Servidor CRUD escuchando en http://localhost:${port}`);
-});
+app.listen(3001, () => {
+  console.log('CRUD listening on port http://localhost:3001')
+})
